@@ -1,0 +1,8 @@
+Flask==3.0.3
+gunicorn==23.0.0
+python-dotenv==1.0.1
+chardet==5.2.0
+requests==2.32.3
+requests-pkcs12==1.25
+reportlab==4.2.5
+selenium==4.27.1

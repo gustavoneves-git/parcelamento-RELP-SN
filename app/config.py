@@ -1,0 +1,90 @@
+import os
+from datetime import timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+
+def _path_from_env(name, default=""):
+    value = os.environ.get(name, default)
+    if not value:
+        return ""
+
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+    return str(BASE_DIR / path)
+
+
+class Config:
+    VERSION = "0.1.0-relp-sn"
+    SECRET_KEY = os.environ.get("RELP_SN_SECRET_KEY", "relp-sn-local-dev")
+    APP_LOGIN_USER = os.environ.get("APP_LOGIN_USER", "")
+    APP_LOGIN_PASSWORD_HASH = os.environ.get("APP_LOGIN_PASSWORD_HASH", "")
+    PERMANENT_SESSION_LIFETIME = timedelta(
+        hours=int(os.environ.get("APP_SESSION_HOURS", "8"))
+    )
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.environ.get("APP_SESSION_COOKIE_SECURE", "0") == "1"
+    DATABASE_PATH = BASE_DIR / "data" / "relp_sn.db"
+    PARCELAS_PATH = BASE_DIR / "storage" / "parcelas"
+    RELP_SN_EXPORTS_PATH = BASE_DIR / "storage" / "relp_sn"
+    ONVIO_SAIDA_PADRAO = BASE_DIR / "storage" / "onvio_saida"
+    ONVIO_UPLOAD_MODE = os.environ.get("ONVIO_UPLOAD_MODE", "pasta")
+    ONVIO_URL = os.environ.get(
+        "ONVIO_URL",
+        "https://onvio.com.br/staff/#/documents/client",
+    )
+    ONVIO_EMAIL = os.environ.get("ONVIO_EMAIL", "")
+    ONVIO_PASSWORD = os.environ.get("ONVIO_PASSWORD", "")
+    ONVIO_BROWSER = os.environ.get("ONVIO_BROWSER", "chrome")
+    ONVIO_HEADLESS = os.environ.get("ONVIO_HEADLESS", "0") == "1"
+    ONVIO_USER_DATA_DIR = _path_from_env("ONVIO_USER_DATA_DIR", "storage/onvio_browser")
+    ONVIO_WAIT_SECONDS = int(os.environ.get("ONVIO_WAIT_SECONDS", "25"))
+    ONVIO_SAVE_ERROR_SCREENSHOT = os.environ.get("ONVIO_SAVE_ERROR_SCREENSHOT", "1") == "1"
+    ONVIO_SAVE_ERROR_HTML = os.environ.get("ONVIO_SAVE_ERROR_HTML", "1") == "1"
+    ONVIO_QUEUE_ENABLED = os.environ.get("ONVIO_QUEUE_ENABLED", "1") == "1"
+    ONVIO_QUEUE_POLL_SECONDS = int(os.environ.get("ONVIO_QUEUE_POLL_SECONDS", "15"))
+    ONVIO_QUEUE_INTERVAL_SECONDS = int(os.environ.get("ONVIO_QUEUE_INTERVAL_SECONDS", "60"))
+
+    SERPRO_CONSUMER_KEY = os.environ.get("SERPRO_CONSUMER_KEY", "")
+    SERPRO_CONSUMER_SECRET = os.environ.get("SERPRO_CONSUMER_SECRET", "")
+    SERPRO_CERT_PATH = _path_from_env("SERPRO_CERT_PATH")
+    SERPRO_CERT_PASSWORD = os.environ.get("SERPRO_CERT_PASSWORD", "")
+    SERPRO_TOKEN_URL = os.environ.get("SERPRO_TOKEN_URL", "")
+    SERPRO_API_URL = os.environ.get("SERPRO_API_URL", "")
+    SERPRO_TIMEOUT_SECONDS = int(os.environ.get("SERPRO_TIMEOUT_SECONDS", "40"))
+    SERPRO_USE_MTLS = os.environ.get("SERPRO_USE_MTLS", "0") == "1"
+    SERPRO_JWT_HEADER_NAME = os.environ.get("SERPRO_JWT_HEADER_NAME", "jwt_token")
+    SERPRO_AUTH_ROLE_TYPE = os.environ.get("SERPRO_AUTH_ROLE_TYPE", "TERCEIROS")
+    SERPRO_CONTRATANTE_CNPJ = os.environ.get("SERPRO_CONTRATANTE_CNPJ", "")
+    SERPRO_AUTOR_PEDIDO_CPF = os.environ.get("SERPRO_AUTOR_PEDIDO_CPF", "")
+
+    ERROR_EMAIL_ENABLED = os.environ.get("ERROR_EMAIL_ENABLED", "0") == "1"
+    ERROR_EMAIL_TO = os.environ.get(
+        "ERROR_EMAIL_TO",
+        "gustavo.neves@consistecontabilidade.com",
+    )
+    SMTP_HOST = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER)
+    SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "1") == "1"
+
+    MICROSOFT_GRAPH_TENANT_ID = os.environ.get("MICROSOFT_GRAPH_TENANT_ID", "")
+    MICROSOFT_GRAPH_CLIENT_ID = os.environ.get("MICROSOFT_GRAPH_CLIENT_ID", "")
+    MICROSOFT_GRAPH_CLIENT_SECRET = os.environ.get("MICROSOFT_GRAPH_CLIENT_SECRET", "")
+    MICROSOFT_GRAPH_USER_EMAIL = os.environ.get("MICROSOFT_GRAPH_USER_EMAIL", ONVIO_EMAIL)
+    MICROSOFT_GRAPH_LOOKBACK_MINUTES = int(os.environ.get("MICROSOFT_GRAPH_LOOKBACK_MINUTES", "10"))
+    MICROSOFT_GRAPH_POLL_SECONDS = int(os.environ.get("MICROSOFT_GRAPH_POLL_SECONDS", "45"))
+
+    LOG_DIR = _path_from_env("LOG_DIR", "logs")
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_MAX_BYTES = int(os.environ.get("LOG_MAX_BYTES", "5242880"))
+    LOG_BACKUP_COUNT = int(os.environ.get("LOG_BACKUP_COUNT", "5"))

@@ -1,0 +1,63 @@
+from flask import Flask, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import HTTPException
+
+from app.config import Config
+from app.database import init_app, init_db
+from app.logging_config import setup_logging
+from app.routes.auth import auth_bp
+from app.routes.empresas import empresas_bp
+from app.routes.historico import historico_bp
+from app.routes.relp_sn import relp_sn_bp
+from app.services.erro_interno_service import registrar_erro_interno
+from app.services.onvio_fila_service import iniciar_worker_onvio
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+
+    setup_logging(app)
+    init_db()
+    init_app(app)
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(empresas_bp)
+    app.register_blueprint(historico_bp)
+    app.register_blueprint(relp_sn_bp)
+    iniciar_worker_onvio(app)
+
+    @app.before_request
+    def exigir_login():
+        endpoints_livres = {"auth.login", "auth.logout", "static"}
+        if request.endpoint in endpoints_livres:
+            return None
+        if session.get("autenticado"):
+            return None
+        return redirect(url_for("auth.login", next=_next_seguro()))
+
+    @app.route("/")
+    def index():
+        return redirect(url_for("empresas.index"))
+
+    @app.errorhandler(Exception)
+    def tratar_erro_interno(exc):
+        if isinstance(exc, HTTPException):
+            return exc
+
+        codigo_ocorrencia = registrar_erro_interno(exc)
+        return (
+            render_template(
+                "erro_interno.html",
+                codigo_ocorrencia=codigo_ocorrencia,
+            ),
+            500,
+        )
+
+    return app
+
+
+def _next_seguro():
+    destino = request.full_path if request.query_string else request.path
+    if not destino.startswith("/") or destino.startswith("//"):
+        return url_for("empresas.index")
+    return destino
