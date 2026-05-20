@@ -4,6 +4,7 @@
 __pycache__/
 *.pyc
 .codex_run/
+.gitignore copy
 .env
 .env.*
 !.env.example
