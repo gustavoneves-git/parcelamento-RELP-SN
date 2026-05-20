@@ -37,7 +37,7 @@ def create_app():
 
     @app.route("/")
     def index():
-        return redirect(url_for("empresas.index"))
+        return redirect(url_for("relp_sn.index"))
 
     @app.errorhandler(Exception)
     def tratar_erro_interno(exc):

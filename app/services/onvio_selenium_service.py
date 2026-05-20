@@ -333,7 +333,7 @@ def _resolver_user_data_dir(browser):
     if texto.startswith("\\\\wsl.localhost\\") or texto.startswith("\\\\wsl$\\"):
         local_appdata = os.environ.get("LOCALAPPDATA")
         if local_appdata:
-            return Path(local_appdata) / "PSN Parcelamento" / f"onvio_{browser}_profile"
+            return Path(local_appdata) / "RELP-SN Parcelamento" / f"onvio_{browser}_profile"
 
     return configurado
 

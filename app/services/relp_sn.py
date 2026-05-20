@@ -1,5 +1,7 @@
 import csv
+import json
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -11,6 +13,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from app.database import get_db
+from app.services.empresa_service import buscar_empresa, buscar_empresa_por_cnpj, criar_empresa
+from app.services.onvio_log_service import registrar_onvio_log
+from app.services.onvio_selenium_service import (
+    OnvioAutomacaoErro,
+    OnvioConfiguracaoErro,
+    subir_pdf_onvio_selenium,
+)
 
 
 CSV_HEADERS = (
@@ -66,6 +77,9 @@ AP_FACILITIES_PAYLOAD = {
 }
 
 
+AP_FACILITIES_CNPJ = "34243018000136"
+
+
 class RelpSnErroValidacao(ValueError):
     pass
 
@@ -108,6 +122,131 @@ def gerar_relp_sn(dados):
 
 def gerar_relp_sn_ap_facilities():
     return gerar_relp_sn(AP_FACILITIES_PAYLOAD)
+
+
+def gerar_e_salvar_relp_sn_ap_facilities():
+    empresa = garantir_empresa_ap_facilities()
+    exportacao = gerar_relp_sn(AP_FACILITIES_PAYLOAD)
+    emissao_id = _salvar_emissao(empresa["id"], AP_FACILITIES_PAYLOAD, exportacao)
+    return buscar_emissao(emissao_id)
+
+
+def garantir_empresa_ap_facilities():
+    empresa = buscar_empresa_por_cnpj(AP_FACILITIES_CNPJ)
+    if empresa is not None:
+        return empresa
+
+    empresa_id, erros = criar_empresa(
+        {
+            "cnpj": AP_FACILITIES_CNPJ,
+            "nome_empresa": AP_FACILITIES_PAYLOAD["nome_empresa"],
+            "nome_onvio": AP_FACILITIES_PAYLOAD["nome_empresa"],
+            "pasta_onvio": "",
+            "status_empresa": "ATIVA",
+            "observacao": "Empresa inicial do sistema RELP-SN.",
+        }
+    )
+    if erros:
+        raise RelpSnErroValidacao("; ".join(erros))
+    return buscar_empresa(empresa_id)
+
+
+def listar_emissoes_relp_sn():
+    return get_db().execute(
+        """
+        SELECT
+            relp_sn_emissoes.*,
+            empresas.cnpj,
+            empresas.nome_empresa,
+            empresas.nome_onvio,
+            empresas.pasta_onvio
+        FROM relp_sn_emissoes
+        JOIN empresas ON empresas.id = relp_sn_emissoes.empresa_id
+        ORDER BY relp_sn_emissoes.data_emissao DESC, relp_sn_emissoes.id DESC
+        """
+    ).fetchall()
+
+
+def buscar_emissao(emissao_id):
+    return get_db().execute(
+        """
+        SELECT
+            relp_sn_emissoes.*,
+            empresas.cnpj,
+            empresas.nome_empresa,
+            empresas.nome_onvio,
+            empresas.pasta_onvio
+        FROM relp_sn_emissoes
+        JOIN empresas ON empresas.id = relp_sn_emissoes.empresa_id
+        WHERE relp_sn_emissoes.id = ?
+        """,
+        (emissao_id,),
+    ).fetchone()
+
+
+def listar_parcelas_emissao(emissao_id):
+    return get_db().execute(
+        """
+        SELECT *
+        FROM relp_sn_parcelas
+        WHERE emissao_id = ?
+        ORDER BY numero_parcela
+        """,
+        (emissao_id,),
+    ).fetchall()
+
+
+def enviar_emissao_onvio(emissao_id):
+    emissao = buscar_emissao(emissao_id)
+    if emissao is None:
+        return _resultado("Emissao RELP-SN nao encontrada.", "error")
+    if emissao["status_onvio"] == "ENVIADO":
+        return _resultado("RELP-SN ja enviado ao Onvio.", "warning")
+    if not emissao["caminho_pdf"]:
+        return _resultado("Emissao RELP-SN nao possui PDF salvo.", "error")
+
+    caminho_pdf = Path(emissao["caminho_pdf"])
+    if not caminho_pdf.exists():
+        _marcar_onvio(emissao_id, "ERRO_ONVIO", "PDF RELP-SN nao encontrado no disco.")
+        return _resultado("PDF RELP-SN nao encontrado no disco.", "error")
+
+    modo = current_app.config["ONVIO_UPLOAD_MODE"].lower()
+    empresa = _empresa_para_onvio(emissao)
+
+    if modo == "pasta":
+        destino = _copiar_pdf_onvio(emissao, caminho_pdf)
+        mensagem = f"PDF RELP-SN copiado para o destino Onvio: {destino}"
+        registrar_onvio_log(
+            acao="relp_sn_onvio_pasta",
+            empresa_id=emissao["empresa_id"],
+            status="SUCESSO",
+            mensagem=mensagem,
+            detalhe_tecnico=json.dumps(
+                {
+                    "emissao_id": emissao_id,
+                    "caminho_pdf": str(caminho_pdf),
+                    "destino": str(destino),
+                    "modo": "pasta",
+                },
+                ensure_ascii=True,
+            ),
+        )
+        _marcar_onvio(emissao_id, "ENVIADO", mensagem)
+        return _resultado("RELP-SN enviado ao Onvio por pasta.", "success")
+
+    if modo == "selenium":
+        try:
+            mensagem = subir_pdf_onvio_selenium(empresa, {"id": None}, caminho_pdf)
+        except OnvioConfiguracaoErro as exc:
+            _marcar_onvio(emissao_id, "ERRO_ONVIO", str(exc))
+            return _resultado(str(exc), "warning")
+        except OnvioAutomacaoErro as exc:
+            _marcar_onvio(emissao_id, "ERRO_ONVIO", str(exc))
+            return _resultado(str(exc), "error")
+        _marcar_onvio(emissao_id, "ENVIADO", mensagem)
+        return _resultado(mensagem, "success")
+
+    return _resultado("ONVIO_UPLOAD_MODE invalido. Use pasta ou selenium.", "error")
 
 
 def _normalizar_payload(dados):
@@ -293,3 +432,104 @@ def _somente_digitos(valor):
 
 def _formatar_cnpj(cnpj):
     return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:14]}"
+
+
+def _salvar_emissao(empresa_id, payload, exportacao):
+    cursor = get_db().execute(
+        """
+        INSERT INTO relp_sn_emissoes (
+            empresa_id,
+            numero_parcelamento,
+            valor_total,
+            total_parcelas,
+            caminho_csv,
+            caminho_pdf,
+            status_emissao,
+            status_onvio,
+            mensagem
+        ) VALUES (?, ?, ?, ?, ?, ?, 'GERADA', 'PRONTO_PARA_SUBIR', ?)
+        """,
+        (
+            empresa_id,
+            payload["numero_parcelamento"],
+            float(exportacao.valor_total),
+            exportacao.total_parcelas,
+            str(exportacao.csv_path),
+            str(exportacao.pdf_path),
+            "RELP-SN gerado e pronto para envio ao Onvio.",
+        ),
+    )
+    emissao_id = cursor.lastrowid
+
+    for parcela in _normalizar_payload(payload)["parcelas"]:
+        get_db().execute(
+            """
+            INSERT INTO relp_sn_parcelas (
+                emissao_id,
+                numero_parcela,
+                competencia,
+                vencimento,
+                valor_principal,
+                valor_juros,
+                valor_multa,
+                valor_total,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                emissao_id,
+                parcela["numero_parcela"],
+                parcela["competencia"],
+                parcela["vencimento"],
+                float(parcela["valor_principal"]),
+                float(parcela["valor_juros"]),
+                float(parcela["valor_multa"]),
+                float(parcela["valor_total"]),
+                parcela["status"],
+            ),
+        )
+    get_db().commit()
+    return emissao_id
+
+
+def _copiar_pdf_onvio(emissao, caminho_pdf):
+    destino_dir = _destino_onvio(emissao)
+    destino_dir.mkdir(parents=True, exist_ok=True)
+    destino = destino_dir / caminho_pdf.name
+    shutil.copy2(caminho_pdf, destino)
+    return destino
+
+
+def _destino_onvio(emissao):
+    if emissao["pasta_onvio"]:
+        return Path(emissao["pasta_onvio"])
+    return Path(current_app.config["ONVIO_SAIDA_PADRAO"]) / emissao["cnpj"] / "RELP-SN"
+
+
+def _marcar_onvio(emissao_id, status, mensagem):
+    get_db().execute(
+        """
+        UPDATE relp_sn_emissoes
+        SET status_onvio = ?,
+            mensagem = ?,
+            data_envio_onvio = CASE WHEN ? = 'ENVIADO' THEN CURRENT_TIMESTAMP ELSE data_envio_onvio END,
+            data_atualizacao = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (status, mensagem, status, emissao_id),
+    )
+    get_db().commit()
+
+
+def _empresa_para_onvio(emissao):
+    return {
+        "id": emissao["empresa_id"],
+        "cnpj": emissao["cnpj"],
+        "nome_empresa": emissao["nome_empresa"],
+        "nome_onvio": emissao["nome_onvio"],
+        "pasta_onvio": emissao["pasta_onvio"],
+    }
+
+
+def _resultado(mensagem, categoria):
+    return {"mensagem": mensagem, "categoria": categoria}

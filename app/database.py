@@ -113,6 +113,51 @@ def init_db():
                 FOREIGN KEY (empresa_id) REFERENCES empresas (id)
             );
 
+            CREATE TABLE IF NOT EXISTS relp_sn_emissoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                empresa_id INTEGER NOT NULL,
+                numero_parcelamento TEXT NOT NULL,
+                valor_total REAL NOT NULL DEFAULT 0,
+                total_parcelas INTEGER NOT NULL DEFAULT 0,
+                caminho_csv TEXT,
+                caminho_pdf TEXT,
+                status_emissao TEXT NOT NULL DEFAULT 'GERADA'
+                    CHECK (status_emissao IN (
+                        'AGUARDANDO_SERPRO',
+                        'GERADA',
+                        'ERRO_EMISSAO'
+                    )),
+                status_onvio TEXT NOT NULL DEFAULT 'PRONTO_PARA_SUBIR'
+                    CHECK (status_onvio IN (
+                        'NAO_DISPONIVEL',
+                        'PRONTO_PARA_SUBIR',
+                        'ENVIADO',
+                        'ERRO_ONVIO'
+                    )),
+                mensagem TEXT,
+                data_emissao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                data_envio_onvio TEXT,
+                data_atualizacao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (empresa_id) REFERENCES empresas (id)
+            );
+
+            CREATE TABLE IF NOT EXISTS relp_sn_parcelas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                emissao_id INTEGER NOT NULL,
+                numero_parcela INTEGER NOT NULL,
+                competencia TEXT NOT NULL,
+                vencimento TEXT,
+                valor_principal REAL NOT NULL DEFAULT 0,
+                valor_juros REAL NOT NULL DEFAULT 0,
+                valor_multa REAL NOT NULL DEFAULT 0,
+                valor_total REAL NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'ABERTA',
+                FOREIGN KEY (emissao_id) REFERENCES relp_sn_emissoes (id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_relp_sn_emissoes_empresa
+                ON relp_sn_emissoes (empresa_id, data_emissao DESC);
+
             CREATE TABLE IF NOT EXISTS erros_internos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 codigo_ocorrencia TEXT NOT NULL UNIQUE,

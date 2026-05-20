@@ -3,13 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Consiste SN</title>
+    <title>Consiste RELP-SN</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <header class="topbar">
-        <a class="brand" href="{{ url_for('empresas.index') }}">Simples Nacional</a>
+        <a class="brand" href="{{ url_for('relp_sn.index') }}">RELP-SN</a>
         <nav>
+            <a href="{{ url_for('relp_sn.index') }}">RELP-SN</a>
             <a href="{{ url_for('empresas.index') }}">Empresas</a>
             <a href="{{ url_for('historico.mensal') }}">Historico mensal</a>
             {% if session.get("autenticado") %}

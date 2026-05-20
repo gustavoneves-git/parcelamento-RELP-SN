@@ -23,6 +23,12 @@ Endpoint rapido para a empresa atual:
 POST /relp-sn/a-p-facilities/generate
 ```
 
+Esse endpoint tambem salva a emissao no banco e deixa o PDF pronto para envio ao Onvio. A tela operacional fica em:
+
+```text
+GET /relp-sn/
+```
+
 Payload minimo:
 
 ```json
@@ -85,9 +91,15 @@ APP_SESSION_COOKIE_SECURE=1
 
 1. Gerar a base local RELP-SN da A & P Facilities.
 2. Emitir CSV/PDF com as parcelas de janeiro a abril.
-3. Substituir o mock local pela consulta SERPRO especifica de RELP-SN.
-4. Salvar os retornos SERPRO e os arquivos emitidos no storage do projeto.
-5. Aproveitar Onvio/logs da base anterior somente quando fizer sentido para este fluxo.
+3. Salvar a emissao e parcelas nas tabelas `relp_sn_emissoes` e `relp_sn_parcelas`.
+4. Enviar o PDF ao Onvio por pasta quando `ONVIO_UPLOAD_MODE=pasta`.
+5. Substituir o mock local pela consulta SERPRO especifica de RELP-SN quando os identificadores oficiais estiverem disponiveis.
+
+No modo `pasta`, se a empresa nao tiver caminho Onvio cadastrado, o destino padrao e:
+
+```text
+storage/onvio_saida/<cnpj>/RELP-SN
+```
 
 ## SERPRO
 

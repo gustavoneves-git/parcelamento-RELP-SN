@@ -13,7 +13,7 @@ def enviar_email_erro_interno(erro):
 
     mensagem = EmailMessage()
     mensagem["Subject"] = (
-        f"[PSN] Erro interno {erro['codigo_ocorrencia']} - {erro['tipo_erro']}"
+        f"[RELP-SN] Erro interno {erro['codigo_ocorrencia']} - {erro['tipo_erro']}"
     )
     mensagem["From"] = current_app.config["SMTP_FROM"]
     mensagem["To"] = current_app.config["ERROR_EMAIL_TO"]
@@ -38,7 +38,7 @@ def enviar_email_erro_interno(erro):
 
 def _corpo_email(erro):
     partes = [
-        "Erro interno no sistema PSN.",
+        "Erro interno no sistema RELP-SN.",
         "",
         f"Codigo da ocorrencia: {erro['codigo_ocorrencia']}",
         f"Sistema: {erro['sistema']}",

@@ -11,11 +11,11 @@ from app.services.email_service import enviar_email_erro_interno
 
 
 def registrar_erro_interno(exc, contexto=None):
-    codigo = f"PSN-{uuid.uuid4().hex[:10].upper()}"
+    codigo = f"RELP-SN-{uuid.uuid4().hex[:10].upper()}"
     contexto = contexto or {}
     erro = {
         "codigo_ocorrencia": codigo,
-        "sistema": "parcelamento-psn",
+        "sistema": "parcelamento-relp-sn",
         "versao_sistema": current_app.config.get("VERSION", ""),
         "empresa_id": contexto.get("empresa_id"),
         "usuario": contexto.get("usuario") or "local",

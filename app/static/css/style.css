@@ -96,6 +96,22 @@ a {
     padding: 20px;
 }
 
+.empty-state {
+    padding: 34px 20px;
+    text-align: center;
+}
+
+.empty-state h2 {
+    font-size: 22px;
+    margin: 0 0 8px;
+}
+
+.empty-state p {
+    color: var(--muted);
+    margin: 0 auto;
+    max-width: 620px;
+}
+
 .error-panel {
     max-width: 680px;
 }
