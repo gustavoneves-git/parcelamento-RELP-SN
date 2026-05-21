@@ -1,12 +1,10 @@
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, request, url_for
 
 from app.services.relp_sn import (
     RelpSnErroValidacao,
     enviar_emissao_onvio,
     gerar_relp_sn,
     gerar_e_salvar_relp_sn_ap_facilities,
-    listar_emissoes_relp_sn,
-    listar_parcelas_emissao,
 )
 
 
@@ -15,16 +13,7 @@ relp_sn_bp = Blueprint("relp_sn", __name__, url_prefix="/relp-sn")
 
 @relp_sn_bp.route("/")
 def index():
-    emissoes = listar_emissoes_relp_sn()
-    parcelas_por_emissao = {
-        emissao["id"]: listar_parcelas_emissao(emissao["id"])
-        for emissao in emissoes
-    }
-    return render_template(
-        "relp_sn.html",
-        emissoes=emissoes,
-        parcelas_por_emissao=parcelas_por_emissao,
-    )
+    return redirect(url_for("historico.mensal"))
 
 
 @relp_sn_bp.route("/generate", methods=["POST"])
@@ -54,7 +43,7 @@ def generate_ap_facilities():
         )
 
     flash("RELP-SN da A & P Facilities gerado com sucesso.", "success")
-    return redirect(url_for("relp_sn.index"))
+    return redirect(url_for("historico.mensal"))
 
 
 @relp_sn_bp.route("/<int:emissao_id>/enviar-onvio", methods=["POST"])
@@ -64,7 +53,7 @@ def enviar_onvio(emissao_id):
         return jsonify(resultado), 200 if resultado["categoria"] == "success" else 400
 
     flash(resultado["mensagem"], resultado["categoria"])
-    return redirect(url_for("relp_sn.index"))
+    return redirect(url_for("historico.mensal"))
 
 
 @relp_sn_bp.route("/a-p-facilities/generate-json", methods=["POST"])
