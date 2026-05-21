@@ -44,11 +44,18 @@ def montar_historico_mensal(ano=None, status_empresa="ATIVA"):
     parcelas = get_db().execute(
         """
         SELECT
-            relp_sn_parcelas.*,
+            relp_sn_parcelas.id,
+            relp_sn_parcelas.emissao_id,
+            relp_sn_parcelas.numero_parcela,
+            relp_sn_parcelas.competencia,
+            relp_sn_parcelas.vencimento,
+            relp_sn_parcelas.valor_total,
+            relp_sn_parcelas.status AS parcela_status,
             relp_sn_emissoes.empresa_id,
             relp_sn_emissoes.status_emissao,
             relp_sn_emissoes.status_onvio,
             relp_sn_emissoes.mensagem,
+            relp_sn_emissoes.caminho_pdf,
             relp_sn_emissoes.data_atualizacao
         FROM relp_sn_parcelas
         JOIN relp_sn_emissoes
@@ -90,7 +97,17 @@ def listar_anos():
 
 def _celula(competencia, parcela):
     if parcela is None:
-        return {"competencia": competencia, "classe": "empty", "texto": "-", "detalhe": ""}
+        return {
+            "competencia": competencia,
+            "emissao_id": None,
+            "parcela_aaaamm": _competencia_para_aaaamm(competencia),
+            "parcela_status": "",
+            "status_onvio": "",
+            "classe": "empty",
+            "texto": "-",
+            "detalhe": "",
+            "acao": "",
+        }
 
     valor_formatado = _formatar_valor(parcela["valor_total"])
     if parcela["status_onvio"] == "ENVIADO":
@@ -114,9 +131,14 @@ def _celula(competencia, parcela):
 
     return {
         "competencia": competencia,
+        "emissao_id": parcela["emissao_id"],
+        "parcela_aaaamm": _competencia_para_aaaamm(competencia),
+        "parcela_status": parcela["parcela_status"],
+        "status_onvio": parcela["status_onvio"],
         "classe": classe,
         "texto": texto,
         "detalhe": parcela["mensagem"] or "",
+        "acao": _acao_celula(parcela),
     }
 
 
@@ -129,3 +151,16 @@ def _formatar_valor(valor):
         return ""
     texto = f"{numero:,.2f}"
     return "R$ " + texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _acao_celula(parcela):
+    if parcela["parcela_status"] == "DISPONIVEL":
+        return "emitir"
+    if parcela["parcela_status"] == "EMITIDA" and parcela["status_onvio"] != "ENVIADO":
+        return "enviar_onvio"
+    return ""
+
+
+def _competencia_para_aaaamm(competencia):
+    mes, ano = competencia.split("/")
+    return f"{ano}{mes.zfill(2)}"

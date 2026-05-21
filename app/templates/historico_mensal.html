@@ -22,6 +22,9 @@
         <a class="filter-link {% if historico.filtro_status == 'ATIVA' %}active{% endif %}" href="{{ url_for('historico.mensal', ano=historico.ano, status='ATIVA') }}">Ativas</a>
         <a class="filter-link {% if historico.filtro_status == 'INATIVA' %}active{% endif %}" href="{{ url_for('historico.mensal', ano=historico.ano, status='INATIVA') }}">Inativas</a>
         <a class="filter-link {% if historico.filtro_status == 'TODAS' %}active{% endif %}" href="{{ url_for('historico.mensal', ano=historico.ano, status='TODAS') }}">Todas</a>
+        <form method="post" action="{{ url_for('relp_sn.consultar_serpro_ap_facilities') }}">
+            <button class="button small primary" type="submit">Consultar SERPRO</button>
+        </form>
     </div>
     <div class="table-wrap history-wrap">
         <table class="history-table">
@@ -41,7 +44,17 @@
                         <td class="sticky company-col">{{ linha.empresa.nome_empresa }}</td>
                         {% for celula in linha.celulas %}
                             <td class="month {{ celula.classe }}" title="{{ celula.competencia }} - {{ celula.detalhe }}">
-                                {{ celula.texto }}
+                                <span>{{ celula.texto }}</span>
+                                {% if celula.acao == "emitir" %}
+                                    <form class="month-action" method="post" action="{{ url_for('relp_sn.emitir_das_ap_facilities') }}">
+                                        <input type="hidden" name="parcela" value="{{ celula.parcela_aaaamm }}">
+                                        <button class="button tiny primary" type="submit">Emitir DAS</button>
+                                    </form>
+                                {% elif celula.acao == "enviar_onvio" %}
+                                    <form class="month-action" method="post" action="{{ url_for('relp_sn.enviar_onvio', emissao_id=celula.emissao_id) }}">
+                                        <button class="button tiny success" type="submit">Enviar Onvio</button>
+                                    </form>
+                                {% endif %}
                             </td>
                         {% endfor %}
                     </tr>

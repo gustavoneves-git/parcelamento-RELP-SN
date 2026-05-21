@@ -82,6 +82,13 @@ def consultar_serpro_ap_facilities_json():
     return jsonify(resposta), status
 
 
+@relp_sn_bp.route("/a-p-facilities/consultar-serpro", methods=["POST"])
+def consultar_serpro_ap_facilities():
+    resultado = consultar_e_salvar_relp_sn_serpro_ap_facilities()
+    flash(resultado["mensagem"], resultado["categoria"])
+    return redirect(url_for("historico.mensal"))
+
+
 @relp_sn_bp.route("/a-p-facilities/emitir-das-json", methods=["POST"])
 def emitir_das_ap_facilities_json():
     parcela = (request.get_json(silent=True) or {}).get("parcela") or "202605"
@@ -94,3 +101,11 @@ def emitir_das_ap_facilities_json():
     if resultado.get("emissao") is not None:
         resposta["emissao"] = dict(resultado["emissao"])
     return jsonify(resposta), status
+
+
+@relp_sn_bp.route("/a-p-facilities/emitir-das", methods=["POST"])
+def emitir_das_ap_facilities():
+    parcela = request.form.get("parcela") or "202605"
+    resultado = emitir_e_salvar_das_relp_sn_ap_facilities(str(parcela))
+    flash(resultado["mensagem"], resultado["categoria"])
+    return redirect(url_for("historico.mensal"))

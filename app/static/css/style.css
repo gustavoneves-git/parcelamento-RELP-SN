@@ -136,9 +136,15 @@ a {
 }
 
 .filters {
+    align-items: center;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 16px;
+}
+
+.filters form {
+    margin: 0;
 }
 
 .history-panel .filters {
@@ -229,6 +235,12 @@ td small {
     font-size: 13px;
     min-height: 32px;
     padding: 6px 10px;
+}
+
+.button.tiny {
+    font-size: 12px;
+    min-height: 28px;
+    padding: 5px 8px;
 }
 
 .button:disabled {
@@ -441,6 +453,10 @@ textarea {
     font-size: 13px;
     min-width: 110px;
     text-align: center;
+}
+
+.month-action {
+    margin: 7px 0 0;
 }
 
 .sent {
