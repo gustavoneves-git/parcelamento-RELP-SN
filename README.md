@@ -29,11 +29,19 @@ Endpoint interno para consultar o RELP-SN real no SERPRO e salvar a emissao reto
 POST /relp-sn/a-p-facilities/consultar-serpro-json
 ```
 
+Endpoint interno para emitir o DAS RELP-SN real no SERPRO e salvar o PDF retornado:
+
+```text
+POST /relp-sn/a-p-facilities/emitir-das-json
+Body opcional: {"parcela": "202605"}
+```
+
 Catalogo SERPRO validado neste ambiente:
 
 ```text
 RELPSN/PEDIDOSPARC193
 RELPSN/PARCELASPARAGERAR192
+RELPSN/GERARDAS191
 ```
 
 Esse endpoint tambem salva a emissao no banco e deixa o PDF pronto para envio ao Onvio. A tela operacional fica em:

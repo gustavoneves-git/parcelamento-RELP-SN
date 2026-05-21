@@ -3,6 +3,7 @@ from flask import Blueprint, flash, jsonify, redirect, request, url_for
 from app.services.relp_sn import (
     RelpSnErroValidacao,
     consultar_e_salvar_relp_sn_serpro_ap_facilities,
+    emitir_e_salvar_das_relp_sn_ap_facilities,
     enviar_emissao_onvio,
     gerar_relp_sn,
     gerar_e_salvar_relp_sn_ap_facilities,
@@ -71,6 +72,20 @@ def generate_ap_facilities_json():
 @relp_sn_bp.route("/a-p-facilities/consultar-serpro-json", methods=["POST"])
 def consultar_serpro_ap_facilities_json():
     resultado = consultar_e_salvar_relp_sn_serpro_ap_facilities()
+    status = 200 if resultado["categoria"] == "success" else 400
+    resposta = {
+        "mensagem": resultado["mensagem"],
+        "categoria": resultado["categoria"],
+    }
+    if resultado.get("emissao") is not None:
+        resposta["emissao"] = dict(resultado["emissao"])
+    return jsonify(resposta), status
+
+
+@relp_sn_bp.route("/a-p-facilities/emitir-das-json", methods=["POST"])
+def emitir_das_ap_facilities_json():
+    parcela = (request.get_json(silent=True) or {}).get("parcela") or "202605"
+    resultado = emitir_e_salvar_das_relp_sn_ap_facilities(str(parcela))
     status = 200 if resultado["categoria"] == "success" else 400
     resposta = {
         "mensagem": resultado["mensagem"],

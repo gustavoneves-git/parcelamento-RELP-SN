@@ -1,4 +1,5 @@
 import csv
+import base64
 import json
 import re
 import shutil
@@ -27,6 +28,7 @@ from app.services.serpro_service import (
     SerproNaoConfigurado,
     consultar_parcelas_disponiveis_relp_sn,
     consultar_pedidos_relp_sn,
+    emitir_das_relp_sn,
 )
 
 
@@ -157,6 +159,34 @@ def consultar_e_salvar_relp_sn_serpro_ap_facilities():
         "emissao": emissao,
         "pedidos": pedidos,
         "parcelas": parcelas,
+    }
+
+
+def emitir_e_salvar_das_relp_sn_ap_facilities(parcela_aaaamm="202605"):
+    empresa = garantir_empresa_ap_facilities()
+    try:
+        resposta = emitir_das_relp_sn(empresa, parcela_aaaamm)
+    except SerproNaoConfigurado as exc:
+        return _resultado(str(exc), "warning")
+    except SerproErro as exc:
+        return _resultado(str(exc), "error")
+
+    pdf_base64 = _extrair_pdf_relp_sn(resposta)
+    if not pdf_base64:
+        return _resultado("SERPRO nao retornou PDF do DAS RELP-SN.", "error")
+
+    payload = _payload_das_emitido_serpro(empresa, parcela_aaaamm, resposta)
+    if _decimal(payload["valor_consolidado"]) == Decimal("0"):
+        payload = _preencher_valor_disponivel_serpro(empresa, parcela_aaaamm, payload)
+    exportacao = gerar_relp_sn(payload)
+    exportacao.pdf_path.write_bytes(base64.b64decode(_limpar_base64_pdf(pdf_base64)))
+    emissao_id = _salvar_emissao(empresa["id"], payload, exportacao)
+    emissao = buscar_emissao(emissao_id)
+    return {
+        "mensagem": "DAS RELP-SN emitido no SERPRO e salvo com sucesso.",
+        "categoria": "success",
+        "emissao": emissao,
+        "resposta": resposta,
     }
 
 
@@ -496,6 +526,49 @@ def _payload_relp_sn_serpro(empresa, pedidos_resposta, parcelas_resposta):
     }
 
 
+def _payload_das_emitido_serpro(empresa, parcela_aaaamm, resposta):
+    dados = _json_dados(resposta)
+    valor = _buscar_primeiro_valor(dados, ("valor", "valorDAS", "valorTotal", "valorParcela", "valorPrincipal"))
+    if valor in (None, ""):
+        valor = "0,00"
+    numero = _buscar_primeiro_valor(dados, ("numeroParcelamento", "numero")) or "9131"
+    return {
+        "cnpj": empresa["cnpj"],
+        "nome_empresa": empresa["nome_empresa"],
+        "numero_parcelamento": str(numero),
+        "data_consolidacao": "",
+        "valor_consolidado": valor,
+        "entrada": "0,00",
+        "saldo_remanescente": valor,
+        "parcelas": [
+            {
+                "numero_parcela": 1,
+                "competencia": _competencia_de_aaaamm(str(parcela_aaaamm)),
+                "vencimento": str(_buscar_primeiro_valor(dados, ("vencimento", "dataVencimento")) or ""),
+                "valor_total": valor,
+                "status": "EMITIDA",
+            }
+        ],
+    }
+
+
+def _preencher_valor_disponivel_serpro(empresa, parcela_aaaamm, payload):
+    try:
+        parcelas = consultar_parcelas_disponiveis_relp_sn(empresa)
+    except Exception:
+        return payload
+
+    for parcela in _json_dados(parcelas).get("listaParcelas") or []:
+        if str(parcela.get("parcela") or "") != str(parcela_aaaamm):
+            continue
+        valor = parcela.get("valor") or "0,00"
+        payload["valor_consolidado"] = valor
+        payload["saldo_remanescente"] = valor
+        payload["parcelas"][0]["valor_total"] = valor
+        break
+    return payload
+
+
 def _json_dados(resposta):
     if not isinstance(resposta, dict):
         return {}
@@ -514,6 +587,42 @@ def _competencia_de_aaaamm(parcela_aaaamm):
     if len(parcela_aaaamm) != 6:
         return ""
     return f"{parcela_aaaamm[4:6]}/{parcela_aaaamm[:4]}"
+
+
+def _extrair_pdf_relp_sn(resposta):
+    dados = _json_dados(resposta)
+    return _buscar_primeiro_valor(
+        dados,
+        ("docArrecadacaoPdfB64", "pdf", "arquivo", "documento", "conteudo", "base64"),
+    )
+
+
+def _buscar_primeiro_valor(valor, chaves):
+    if isinstance(valor, dict):
+        for chave in chaves:
+            if valor.get(chave) not in (None, ""):
+                return valor[chave]
+        for item in valor.values():
+            encontrado = _buscar_primeiro_valor(item, chaves)
+            if encontrado not in (None, ""):
+                return encontrado
+    if isinstance(valor, list):
+        for item in valor:
+            encontrado = _buscar_primeiro_valor(item, chaves)
+            if encontrado not in (None, ""):
+                return encontrado
+    if isinstance(valor, str):
+        texto = valor.strip()
+        if texto.startswith("{") or texto.startswith("["):
+            try:
+                return _buscar_primeiro_valor(json.loads(texto), chaves)
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def _limpar_base64_pdf(texto):
+    return str(texto or "").strip().replace("data:application/pdf;base64,", "", 1)
 
 
 def _salvar_emissao(empresa_id, payload, exportacao):
