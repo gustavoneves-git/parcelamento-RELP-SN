@@ -43,10 +43,18 @@ def montar_historico_mensal(ano=None, status_empresa="ATIVA"):
         ).fetchall()
     parcelas = get_db().execute(
         """
-        SELECT *
-        FROM parcelas
-        WHERE competencia LIKE ?
-        ORDER BY data_atualizacao DESC, id DESC
+        SELECT
+            relp_sn_parcelas.*,
+            relp_sn_emissoes.empresa_id,
+            relp_sn_emissoes.status_emissao,
+            relp_sn_emissoes.status_onvio,
+            relp_sn_emissoes.mensagem,
+            relp_sn_emissoes.data_atualizacao
+        FROM relp_sn_parcelas
+        JOIN relp_sn_emissoes
+            ON relp_sn_emissoes.id = relp_sn_parcelas.emissao_id
+        WHERE relp_sn_parcelas.competencia LIKE ?
+        ORDER BY relp_sn_emissoes.data_atualizacao DESC, relp_sn_emissoes.id DESC
         """,
         (f"%/{ano}",),
     ).fetchall()
@@ -74,7 +82,7 @@ def montar_historico_mensal(ano=None, status_empresa="ATIVA"):
 
 def listar_anos():
     anos = {str(datetime.now().year)}
-    for row in get_db().execute("SELECT competencia FROM parcelas").fetchall():
+    for row in get_db().execute("SELECT competencia FROM relp_sn_parcelas").fetchall():
         if row["competencia"] and "/" in row["competencia"]:
             anos.add(row["competencia"].split("/")[-1])
     return sorted(anos, reverse=True)
@@ -84,7 +92,7 @@ def _celula(competencia, parcela):
     if parcela is None:
         return {"competencia": competencia, "classe": "empty", "texto": "-", "detalhe": ""}
 
-    valor_formatado = _formatar_valor(parcela["valor"])
+    valor_formatado = _formatar_valor(parcela["valor_total"])
     if parcela["status_onvio"] == "ENVIADO":
         classe = "sent"
         texto = valor_formatado or "Cliente"
