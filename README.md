@@ -23,6 +23,19 @@ Endpoint rapido para a empresa atual:
 POST /relp-sn/a-p-facilities/generate
 ```
 
+Endpoint interno para consultar o RELP-SN real no SERPRO e salvar a emissao retornada:
+
+```text
+POST /relp-sn/a-p-facilities/consultar-serpro-json
+```
+
+Catalogo SERPRO validado neste ambiente:
+
+```text
+RELPSN/PEDIDOSPARC193
+RELPSN/PARCELASPARAGERAR192
+```
+
 Esse endpoint tambem salva a emissao no banco e deixa o PDF pronto para envio ao Onvio. A tela operacional fica em:
 
 ```text

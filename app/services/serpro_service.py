@@ -18,6 +18,16 @@ SERVICO_CONSULTAR_PARCELAMENTO = "OBTERPARC164"
 SERVICO_PARCELAS_DISPONIVEIS = "PARCELASPARAGERAR162"
 SERVICO_EMITIR_DAS = "GERARDAS161"
 
+RELPSN_SISTEMA = "RELPSN"
+RELPSN_VERSAO = "1.0"
+# Catalogo legado do Integra Contador em uso neste ambiente.
+SERVICO_RELP_SN_CONSULTAR_PEDIDOS = "PEDIDOSPARC193"
+SERVICO_RELP_SN_CONSULTAR_PARCELAMENTO = "OBTERPARC194"
+SERVICO_RELP_SN_PARCELAS_DISPONIVEIS = "PARCELASPARAGERAR192"
+SERVICO_RELP_SN_DETALHAR_PAGAMENTO = "DETPAGTOPARC195"
+SERVICO_RELP_SN_EMITIR_DAS = "GERARDAS191"
+SERVICOS_EMISSAO = {SERVICO_EMITIR_DAS, SERVICO_RELP_SN_EMITIR_DAS}
+
 _TOKEN_CACHE = {"access_token": "", "jwt_token": "", "expires_at": 0}
 
 
@@ -60,6 +70,54 @@ def emitir_das_psn(empresa, parcela_aaaamm):
         id_servico=SERVICO_EMITIR_DAS,
         dados={"parcelaParaEmitir": parcela_aaaamm},
         acao="emitir_das_psn",
+    )
+
+
+def consultar_pedidos_relp_sn(empresa):
+    return _cliente().chamar_servico(
+        empresa=empresa,
+        competencia=None,
+        id_servico=SERVICO_RELP_SN_CONSULTAR_PEDIDOS,
+        dados="",
+        acao="consultar_pedidos_relp_sn",
+        id_sistema=RELPSN_SISTEMA,
+        versao_sistema=RELPSN_VERSAO,
+    )
+
+
+def consultar_parcelamento_relp_sn(empresa, numero_parcelamento):
+    return _cliente().chamar_servico(
+        empresa=empresa,
+        competencia=None,
+        id_servico=SERVICO_RELP_SN_CONSULTAR_PARCELAMENTO,
+        dados={"numeroParcelamento": numero_parcelamento},
+        acao="consultar_parcelamento_relp_sn",
+        id_sistema=RELPSN_SISTEMA,
+        versao_sistema=RELPSN_VERSAO,
+    )
+
+
+def consultar_parcelas_disponiveis_relp_sn(empresa):
+    return _cliente().chamar_servico(
+        empresa=empresa,
+        competencia=None,
+        id_servico=SERVICO_RELP_SN_PARCELAS_DISPONIVEIS,
+        dados="",
+        acao="consultar_parcelas_disponiveis_relp_sn",
+        id_sistema=RELPSN_SISTEMA,
+        versao_sistema=RELPSN_VERSAO,
+    )
+
+
+def emitir_das_relp_sn(empresa, parcela_aaaamm):
+    return _cliente().chamar_servico(
+        empresa=empresa,
+        competencia=_competencia_de_aaaamm(parcela_aaaamm),
+        id_servico=SERVICO_RELP_SN_EMITIR_DAS,
+        dados={"parcelaParaEmitir": parcela_aaaamm},
+        acao="emitir_das_relp_sn",
+        id_sistema=RELPSN_SISTEMA,
+        versao_sistema=RELPSN_VERSAO,
     )
 
 
@@ -148,9 +206,18 @@ class SerproClient:
         )
         return access_token, jwt_token
 
-    def chamar_servico(self, empresa, competencia, id_servico, dados, acao):
+    def chamar_servico(
+        self,
+        empresa,
+        competencia,
+        id_servico,
+        dados,
+        acao,
+        id_sistema=PARCSN_SISTEMA,
+        versao_sistema=PARCSN_VERSAO,
+    ):
         access_token, jwt_token = self.autenticar()
-        payload = self._montar_payload(empresa, id_servico, dados)
+        payload = self._montar_payload(empresa, id_servico, dados, id_sistema, versao_sistema)
         url = self._url_servico(id_servico)
         headers = {
             "Accept": "application/json",
@@ -163,7 +230,7 @@ class SerproClient:
             acao=acao,
             empresa_id=empresa["id"],
             competencia=competencia,
-            mensagem=f"Chamando servico PARCSN/{id_servico}.",
+            mensagem=f"Chamando servico {id_sistema}/{id_servico}.",
             status="INFO",
             detalhe_tecnico=_payload_sem_segredos(payload),
         )
@@ -181,7 +248,7 @@ class SerproClient:
                 acao=acao,
                 empresa_id=empresa["id"],
                 competencia=competencia,
-                mensagem=f"Erro HTTP no servico PARCSN/{id_servico}.",
+                mensagem=f"Erro HTTP no servico {id_sistema}/{id_servico}.",
                 status="ERRO",
                 http_status=response.status_code,
                 detalhe_tecnico=detalhe,
@@ -192,7 +259,7 @@ class SerproClient:
             acao=acao,
             empresa_id=empresa["id"],
             competencia=competencia,
-            mensagem=f"Servico PARCSN/{id_servico} executado com sucesso.",
+            mensagem=f"Servico {id_sistema}/{id_servico} executado com sucesso.",
             status="SUCESSO",
             http_status=response.status_code,
             detalhe_tecnico=detalhe,
@@ -201,11 +268,11 @@ class SerproClient:
             return {"pdf": base64.b64encode(response.content).decode("ascii")}
         return response.json()
 
-    def _montar_payload(self, empresa, id_servico, dados):
+    def _montar_payload(self, empresa, id_servico, dados, id_sistema, versao_sistema):
         pedido_dados = {
-            "idSistema": PARCSN_SISTEMA,
+            "idSistema": id_sistema,
             "idServico": id_servico,
-            "versaoSistema": PARCSN_VERSAO,
+            "versaoSistema": versao_sistema,
         }
         if dados == "":
             pedido_dados["dados"] = ""
@@ -231,7 +298,7 @@ class SerproClient:
         return payload
 
     def _url_servico(self, id_servico):
-        rota = "Emitir" if id_servico == SERVICO_EMITIR_DAS else "Consultar"
+        rota = "Emitir" if id_servico in SERVICOS_EMISSAO else "Consultar"
         base = self.api_url.rstrip("/") + "/"
         return urljoin(base, rota)
 

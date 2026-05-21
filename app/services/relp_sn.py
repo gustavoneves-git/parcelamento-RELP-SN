@@ -22,6 +22,12 @@ from app.services.onvio_selenium_service import (
     OnvioConfiguracaoErro,
     subir_pdf_onvio_selenium,
 )
+from app.services.serpro_service import (
+    SerproErro,
+    SerproNaoConfigurado,
+    consultar_parcelas_disponiveis_relp_sn,
+    consultar_pedidos_relp_sn,
+)
 
 
 CSV_HEADERS = (
@@ -129,6 +135,29 @@ def gerar_e_salvar_relp_sn_ap_facilities():
     exportacao = gerar_relp_sn(AP_FACILITIES_PAYLOAD)
     emissao_id = _salvar_emissao(empresa["id"], AP_FACILITIES_PAYLOAD, exportacao)
     return buscar_emissao(emissao_id)
+
+
+def consultar_e_salvar_relp_sn_serpro_ap_facilities():
+    empresa = garantir_empresa_ap_facilities()
+    try:
+        pedidos = consultar_pedidos_relp_sn(empresa)
+        parcelas = consultar_parcelas_disponiveis_relp_sn(empresa)
+    except SerproNaoConfigurado as exc:
+        return _resultado(str(exc), "warning")
+    except SerproErro as exc:
+        return _resultado(str(exc), "error")
+
+    payload = _payload_relp_sn_serpro(empresa, pedidos, parcelas)
+    exportacao = gerar_relp_sn(payload)
+    emissao_id = _salvar_emissao(empresa["id"], payload, exportacao)
+    emissao = buscar_emissao(emissao_id)
+    return {
+        "mensagem": "RELP-SN consultado no SERPRO e salvo com sucesso.",
+        "categoria": "success",
+        "emissao": emissao,
+        "pedidos": pedidos,
+        "parcelas": parcelas,
+    }
 
 
 def garantir_empresa_ap_facilities():
@@ -432,6 +461,59 @@ def _somente_digitos(valor):
 
 def _formatar_cnpj(cnpj):
     return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:14]}"
+
+
+def _payload_relp_sn_serpro(empresa, pedidos_resposta, parcelas_resposta):
+    pedidos = _json_dados(pedidos_resposta).get("parcelamentos") or []
+    parcelas = _json_dados(parcelas_resposta).get("listaParcelas") or []
+    numero_parcelamento = str(pedidos[0].get("numero")) if pedidos else "RELP-SN-SERPRO"
+    parcelas_payload = []
+    for index, parcela in enumerate(parcelas, start=1):
+        parcela_aaaamm = str(parcela.get("parcela") or "")
+        parcelas_payload.append(
+            {
+                "numero_parcela": index,
+                "competencia": _competencia_de_aaaamm(parcela_aaaamm),
+                "vencimento": "",
+                "valor_total": parcela.get("valor") or "0,00",
+                "status": "DISPONIVEL",
+            }
+        )
+
+    if not parcelas_payload:
+        raise RelpSnErroValidacao("SERPRO nao retornou parcelas RELP-SN disponiveis.")
+
+    valor_total = sum((_decimal(parcela["valor_total"]) for parcela in parcelas_payload), Decimal("0"))
+    return {
+        "cnpj": empresa["cnpj"],
+        "nome_empresa": empresa["nome_empresa"],
+        "numero_parcelamento": numero_parcelamento,
+        "data_consolidacao": "",
+        "valor_consolidado": valor_total,
+        "entrada": "0,00",
+        "saldo_remanescente": valor_total,
+        "parcelas": parcelas_payload,
+    }
+
+
+def _json_dados(resposta):
+    if not isinstance(resposta, dict):
+        return {}
+    dados = resposta.get("dados")
+    if isinstance(dados, dict):
+        return dados
+    if not isinstance(dados, str) or not dados.strip():
+        return {}
+    try:
+        return json.loads(dados)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _competencia_de_aaaamm(parcela_aaaamm):
+    if len(parcela_aaaamm) != 6:
+        return ""
+    return f"{parcela_aaaamm[4:6]}/{parcela_aaaamm[:4]}"
 
 
 def _salvar_emissao(empresa_id, payload, exportacao):
