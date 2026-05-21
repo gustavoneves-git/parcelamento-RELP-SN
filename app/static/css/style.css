@@ -19,6 +19,8 @@
 body {
     background: var(--bg);
     color: var(--text);
+    display: flex;
+    flex-direction: column;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 15px;
     margin: 0;
@@ -65,9 +67,11 @@ a {
 }
 
 .container {
+    flex: 1 0 auto;
     margin: 0 auto;
     max-width: 1220px;
     padding: 28px 20px 46px;
+    width: 100%;
 }
 
 .page-title {
@@ -475,6 +479,7 @@ textarea {
 
 .login-page {
     background: linear-gradient(180deg, #ffffff 0%, #eef4f8 100%);
+    display: block;
     min-height: 100vh;
 }
 
@@ -543,6 +548,7 @@ textarea {
     border-top: 1px solid var(--line);
     color: var(--muted);
     display: flex;
+    flex-shrink: 0;
     gap: 18px;
     justify-content: center;
     min-height: 88px;
