@@ -38,32 +38,38 @@ def listar_empresas_com_parcela_atual(status_empresa="ATIVA"):
         f"""
         SELECT
             empresas.*,
-            parcelas.id AS parcela_id,
-            parcelas.competencia,
-            parcelas.valor,
-            parcelas.vencimento,
-            parcelas.caminho_pdf,
-            parcelas.status_emissao,
-            parcelas.status_onvio,
-            parcelas.mensagem,
-            parcelas.data_emissao,
-            parcelas.data_envio_onvio,
-            fila_onvio.id AS fila_onvio_id,
-            fila_onvio.status AS fila_onvio_status,
-            fila_onvio.mensagem AS fila_onvio_mensagem
+            relp_sn_emissoes.id AS emissao_id,
+            relp_sn_emissoes.numero_parcelamento,
+            relp_sn_emissoes.valor_total AS valor,
+            relp_sn_emissoes.total_parcelas,
+            relp_sn_emissoes.caminho_pdf,
+            relp_sn_emissoes.caminho_csv,
+            relp_sn_emissoes.status_emissao,
+            relp_sn_emissoes.status_onvio,
+            relp_sn_emissoes.mensagem,
+            relp_sn_emissoes.data_emissao,
+            relp_sn_emissoes.data_envio_onvio,
+            relp_sn_parcelas.competencia,
+            relp_sn_parcelas.status AS parcela_status
         FROM empresas
-        LEFT JOIN parcelas
-            ON parcelas.empresa_id = empresas.id
-           AND parcelas.id = (
+        LEFT JOIN relp_sn_emissoes
+            ON relp_sn_emissoes.empresa_id = empresas.id
+           AND relp_sn_emissoes.id = (
                 SELECT id
-                FROM parcelas AS ultima_parcela
-                WHERE ultima_parcela.empresa_id = empresas.id
-                ORDER BY ultima_parcela.data_atualizacao DESC, ultima_parcela.id DESC
+                FROM relp_sn_emissoes AS ultima_emissao
+                WHERE ultima_emissao.empresa_id = empresas.id
+                ORDER BY ultima_emissao.data_atualizacao DESC, ultima_emissao.id DESC
                 LIMIT 1
            )
-        LEFT JOIN onvio_fila AS fila_onvio
-            ON fila_onvio.parcela_id = parcelas.id
-           AND fila_onvio.status IN ('AGUARDANDO', 'PROCESSANDO')
+        LEFT JOIN relp_sn_parcelas
+            ON relp_sn_parcelas.emissao_id = relp_sn_emissoes.id
+           AND relp_sn_parcelas.id = (
+                SELECT id
+                FROM relp_sn_parcelas AS primeira_parcela
+                WHERE primeira_parcela.emissao_id = relp_sn_emissoes.id
+                ORDER BY primeira_parcela.numero_parcela
+                LIMIT 1
+           )
         {filtro_status}
         ORDER BY empresas.nome_empresa
         """,

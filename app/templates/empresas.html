@@ -4,7 +4,7 @@
 <section class="page-title">
     <div>
         <h1>Empresas</h1>
-        <p>Emita a guia e envie o PDF para a area do cliente na Consiste Contabilidade.</p>
+        <p>Emita o DAS RELP-SN e envie o PDF para a area do cliente na Consiste Contabilidade.</p>
     </div>
     <a class="button primary" href="{{ url_for('empresas.nova') }}">Nova empresa</a>
 </section>
@@ -21,7 +21,7 @@
                 <tr>
                     <th>CNPJ</th>
                     <th>Empresa</th>
-                    <th>Disponibilidade herdada</th>
+                    <th>Disponibilidade RELP-SN</th>
                     <th>PDF</th>
                     <th>Acoes</th>
                 </tr>
@@ -37,9 +37,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% set disponibilidades = disponibilidades_por_empresa.get(empresa.id, []) %}
-                            {% set liberadas = disponibilidades | selectattr("status_disponibilidade", "equalto", "DISPONIVEL") | list %}
-                            {% if empresa.status_emissao == "EMITIDA" and empresa.caminho_pdf %}
+                            {% if empresa.parcela_status == "EMITIDA" and empresa.caminho_pdf %}
                                 <span class="badge ready">Guia emitida</span>
                                 {% if empresa.status_onvio == "ENVIADO" %}
                                     <small>Guia enviada ao cliente.</small>
@@ -48,26 +46,14 @@
                                 {% elif empresa.mensagem %}
                                     <small>{{ empresa.mensagem }}</small>
                                 {% endif %}
-                            {% elif liberadas %}
+                            {% elif empresa.parcela_status == "DISPONIVEL" %}
                                 <div class="availability-list">
-                                    {% for item in liberadas %}
-                                        <form method="post" action="{{ url_for('empresas.emitir', empresa_id=empresa.id) }}">
-                                            <input type="hidden" name="competencia" value="{{ item.competencia }}">
-                                            <span class="badge ready">{{ item.competencia }}</span>
-                                            <button class="button small success" type="submit">Emitir</button>
-                                        </form>
-                                    {% endfor %}
+                                    <form method="post" action="{{ url_for('empresas.emitir', empresa_id=empresa.id) }}">
+                                        <input type="hidden" name="parcela" value="{{ empresa.competencia[3:7] ~ empresa.competencia[0:2] }}">
+                                        <span class="badge ready">{{ empresa.competencia }}</span>
+                                        <button class="button small success" type="submit">Emitir</button>
+                                    </form>
                                 </div>
-                            {% elif disponibilidades %}
-                                {% set item = disponibilidades[0] %}
-                                {% if item.status_disponibilidade == "ERRO_CONSULTA" %}
-                                    <span class="badge error">Consulta com erro</span>
-                                {% else %}
-                                    <span class="badge waiting">Sem guia liberada</span>
-                                {% endif %}
-                                {% if item.mensagem %}
-                                    <small>{{ item.mensagem }}</small>
-                                {% endif %}
                             {% else %}
                                 <span class="badge muted">Ainda nao consultado</span>
                                 <small>Clique em Emitir guia para consultar o SERPRO.</small>
@@ -76,11 +62,6 @@
                         <td>
                             {% if empresa.caminho_pdf %}
                                 <span class="pdf-name">{{ empresa.caminho_pdf.split("/")[-1] }}</span>
-                                {% if empresa.fila_onvio_status == "AGUARDANDO" %}
-                                    <span class="badge waiting queue-badge">Na fila de envio</span>
-                                {% elif empresa.fila_onvio_status == "PROCESSANDO" %}
-                                    <span class="badge ready queue-badge">Enviando ao cliente</span>
-                                {% endif %}
                             {% else %}
                                 -
                             {% endif %}
@@ -92,19 +73,13 @@
                                     <button class="button small" type="submit">Emitir guia</button>
                                 </form>
                                 <form method="post" action="{{ url_for('empresas.subir_onvio', empresa_id=empresa.id) }}">
-                                    {% set envio_onvio_em_fila = empresa.fila_onvio_status in ["AGUARDANDO", "PROCESSANDO"] %}
+                                    <input type="hidden" name="emissao_id" value="{{ empresa.emissao_id or '' }}">
                                     <button
                                         class="button small {% if empresa.status_onvio == 'PRONTO_PARA_SUBIR' and not envio_onvio_em_fila %}success{% endif %}"
                                         type="submit"
-                                        {% if empresa.status_onvio != 'PRONTO_PARA_SUBIR' or envio_onvio_em_fila %}disabled{% endif %}
+                                        {% if empresa.status_onvio != 'PRONTO_PARA_SUBIR' %}disabled{% endif %}
                                     >
-                                        {% if empresa.fila_onvio_status == "AGUARDANDO" %}
-                                            Na fila de envio
-                                        {% elif empresa.fila_onvio_status == "PROCESSANDO" %}
-                                            Enviando ao cliente
-                                        {% else %}
-                                            Enviar ao cliente
-                                        {% endif %}
+                                        Enviar ao cliente
                                     </button>
                                 </form>
                             {% endif %}

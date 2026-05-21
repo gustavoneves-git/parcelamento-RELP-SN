@@ -6,11 +6,10 @@ from app.services.empresa_service import (
     criar_empresa,
     listar_empresas_com_parcela_atual,
 )
-from app.services.onvio_fila_service import enfileirar_envio_onvio
-from app.services.parcela_service import emitir_parcela_competencia
-from app.services.psn_disponibilidade_service import (
-    consultar_e_salvar_disponibilidades,
-    listar_disponibilidades_por_empresa,
+from app.services.relp_sn import (
+    consultar_e_salvar_relp_sn_serpro_ap_facilities,
+    emitir_e_salvar_das_relp_sn_ap_facilities,
+    enviar_emissao_onvio,
 )
 
 
@@ -27,7 +26,6 @@ def index():
     return render_template(
         "empresas.html",
         empresas=listar_empresas_com_parcela_atual(status_consulta),
-        disponibilidades_por_empresa=listar_disponibilidades_por_empresa(),
         filtro_status=filtro_status,
     )
 
@@ -66,21 +64,25 @@ def editar(empresa_id):
 
 @empresas_bp.route("/<int:empresa_id>/emitir", methods=["POST"])
 def emitir(empresa_id):
-    competencia = request.form.get("competencia") or ""
-    resultado = emitir_parcela_competencia(empresa_id, competencia)
+    parcela = request.form.get("parcela") or ""
+    resultado = emitir_e_salvar_das_relp_sn_ap_facilities(parcela)
     flash(resultado["mensagem"], resultado["categoria"])
     return redirect(url_for("empresas.index"))
 
 
 @empresas_bp.route("/<int:empresa_id>/consultar-serpro", methods=["POST"])
 def consultar_serpro(empresa_id):
-    resultado = consultar_e_salvar_disponibilidades(empresa_id)
+    resultado = consultar_e_salvar_relp_sn_serpro_ap_facilities()
     flash(resultado["mensagem"], resultado["categoria"])
     return redirect(url_for("empresas.index"))
 
 
 @empresas_bp.route("/<int:empresa_id>/subir-onvio", methods=["POST"])
 def subir_onvio(empresa_id):
-    resultado = enfileirar_envio_onvio(empresa_id)
+    emissao_id = request.form.get("emissao_id")
+    if not emissao_id:
+        flash("Emissao RELP-SN nao encontrada para envio.", "error")
+        return redirect(url_for("empresas.index"))
+    resultado = enviar_emissao_onvio(int(emissao_id))
     flash(resultado["mensagem"], resultado["categoria"])
     return redirect(url_for("empresas.index"))

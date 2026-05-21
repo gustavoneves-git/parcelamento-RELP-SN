@@ -8,10 +8,10 @@
 </head>
 <body>
     <header class="topbar">
-        <a class="brand" href="{{ url_for('historico.mensal') }}">RELP-SN</a>
+        <a class="brand" href="{{ url_for('empresas.index') }}">RELP-SN</a>
         <nav>
-            <a href="{{ url_for('historico.mensal') }}">Historico mensal</a>
             <a href="{{ url_for('empresas.index') }}">Empresas</a>
+            <a href="{{ url_for('historico.mensal') }}">Historico mensal</a>
             {% if session.get("autenticado") %}
                 <form class="logout-form" method="post" action="{{ url_for('auth.logout') }}">
                     <button type="submit">Sair</button>

@@ -37,7 +37,7 @@ def create_app():
 
     @app.route("/")
     def index():
-        return redirect(url_for("historico.mensal"))
+        return redirect(url_for("empresas.index"))
 
     @app.errorhandler(Exception)
     def tratar_erro_interno(exc):
@@ -59,5 +59,5 @@ def create_app():
 def _next_seguro():
     destino = request.full_path if request.query_string else request.path
     if not destino.startswith("/") or destino.startswith("//"):
-        return url_for("historico.mensal")
+        return url_for("empresas.index")
     return destino
